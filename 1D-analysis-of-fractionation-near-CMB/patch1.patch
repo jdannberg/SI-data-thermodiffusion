@@ -1,0 +1,13 @@
+diff --git a/source/simulator/assemblers/advection.cc b/source/simulator/assemblers/advection.cc
+index b3d98425d..27b3b5245 100644
+--- a/source/simulator/assemblers/advection.cc
++++ b/source/simulator/assemblers/advection.cc
+@@ -116,7 +116,7 @@ namespace aspect
+           {
+ 		    const dealii::Point<1> pressure_point (scratch.material_model_inputs.pressure[q]);
+ 		    const double solidus_T = this->get_parameters().solidus_function->value(pressure_point,c);
+-		    if (scratch.material_model_inputs.temperature[q] > solidus_T)
++		    if (scratch.material_model_inputs.temperature[q] > solidus_T && scratch.material_model_inputs.position[q](1)<10000.0)
+         	  transition = 1.0;
+           }
+ 

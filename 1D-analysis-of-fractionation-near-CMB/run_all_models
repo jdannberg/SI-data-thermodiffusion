@@ -1,0 +1,31 @@
+#!/bin/bash
+
+for conductivity in 4 8.5; do
+  for diffusion in 1e-9 2.5e-9 5.e-9 1.e-8 1.5e-8; do
+    for age in 5e6; do
+      alpha=`echo 3 | gawk -v diffusion=$diffusion 'BEGIN{print diffusion * 0.107367642}'`
+      echo $alpha
+
+      echo "subsection Compositional fields" > current.prm
+      echo "  set List of chemical diffusivities = $diffusion" >> current.prm
+      echo "  set List of isotope fractionation factors = ${alpha}" >> current.prm
+      echo "end" >> current.prm
+
+      echo "subsection Material model" >> current.prm
+      echo "  subsection Fractionation model" >> current.prm
+      echo "    set Thermal conductivity          = $conductivity" >> current.prm
+      echo "  end" >> current.prm
+      echo "end" >> current.prm
+
+      echo "subsection Initial temperature model" >> current.prm
+      echo "  subsection Adiabatic" >> current.prm
+      echo "    set Age bottom boundary layer = $age" >> current.prm
+      echo "  end" >> current.prm
+      echo "end" >> current.prm
+      echo "Starting k${conductivity}_D${diffusion}_age${age}"
+      echo "set Output directory = k4_D${diffusion}_age${age}" >> current.prm
+
+      cat 1d_test.prm current.prm | mpirun -np 6 aspect -- >log 2>log
+    done
+  done
+done

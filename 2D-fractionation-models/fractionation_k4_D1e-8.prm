@@ -1,0 +1,181 @@
+# Fractionation example.
+# Set the diffusivity to zero in regions where we believe the iron would all be solid.
+# using alpha0 = 2.9, which means alpha = 2.9/(1-0.27)*3/(54+57) = 0.107367642
+
+set Dimension                              = 2
+set Use years in output instead of seconds = true
+set End time                               = 1.6e9
+set Maximum time step                      = 5e5
+set Output directory                       = morard_k4
+set Nonlinear solver scheme                = iterated Advection and Stokes
+set Max nonlinear iterations               = 10
+
+set Pressure normalization                 = surface
+set Surface pressure                       = 0
+set Adiabatic surface temperature          = 1600
+
+set Resume computation = true
+
+subsection Solver parameters
+  subsection Stokes solver parameters
+    set Linear solver tolerance            = 1e-10
+  end
+end
+
+# The factor that is referred to as alpha in the manuscript is the ratio of the 
+# chemical diffusivit and the isotope fractionation factor. 
+# The value from the manusript, alpha = 2.9, assumes that the fraction of iron54
+# is close to 1, which is not given in our setup. Hence, we have to use a factor of
+# 2.9/(1-0.27)=3.97 here (where 0.27 is the ratio of iron57 to iron54).
+subsection Compositional fields
+  set Number of fields = 1
+  set Names of fields  = iron57
+  set List of chemical diffusivities = 1.e-8
+  set List of isotope fractionation factors = 1.0736764e-9 #alpha0 approx 4!
+
+  subsection Solidus function
+    set Variable names = p
+
+    # set Function constants  = T0=2194, p0=21.4, a=20, c=4      # pure Fe, Zhang et al., 2016
+    # set Function constants  = T0=2199, p0=21.5, a=18, c=4.55      # Fe10Ni, Zhang et al., 2016
+     set Function constants  = T0=1478, p0=0, a=10, c=3.3      # Fe5Ni15Si, Morard et al., 2011
+    # set Function constants  = T0=1420, p0=0, a=16, c=3.05      # Fe-C eutectic, Liu et al., 2016
+
+    # Simon-Gatzel equation
+    set Function expression = if(p>8e10, T0 * ((p/1.e9 - p0)/a + 1)^(1/c), 1e10)
+
+    # 3rd order polynomial for Anzellini et al., 2013
+    # set Function expression = if(p>8e10, 0.0005*(p/1.e9)^3 - 0.1763*(p/1.e9)^2 + 31.337*(p/1.e9) + 1811, 1e10)
+  end
+end
+
+# We model the whole mantle.
+subsection Geometry model
+  set Model name = box
+
+  subsection Box
+    set X extent = 1500000
+    set Y extent = 2900000
+    set Y repetitions = 2
+  end
+end
+
+
+subsection Initial temperature model
+  set List of model names = adiabatic, function
+
+  subsection Adiabatic
+    set Age bottom boundary layer = 5e6
+    set Age top boundary layer = 0
+  end
+
+  subsection Function
+    set Function constants  = amplitude=1e-4, width=100000, b=750000
+    set Function expression = amplitude * exp(-(y*y+(x-b)*(x-b))/(2*width*width))
+  end
+
+end
+
+subsection Initial composition model
+  set Model name = function
+  subsection Function
+   set Function expression = 0.27
+  end
+end
+
+
+subsection Boundary temperature model
+  set Fixed temperature boundary indicators   = bottom, top
+  set List of model names = initial temperature
+  subsection Initial temperature
+    set Maximal temperature = 3800
+    set Minimal temperature = 1600
+  end
+end
+
+subsection Boundary composition model
+  set Fixed composition boundary indicators   = bottom
+  set List of model names = initial composition
+end
+
+subsection Boundary velocity model
+  set Tangential velocity boundary indicators = bottom, top, left, right
+end
+
+subsection Nullspace removal
+#  set Remove nullspace                        = net x translation
+end
+
+subsection Heating model
+  set List of model names = adiabatic heating, shear heating
+end
+
+
+subsection Gravity model
+  set Model name = vertical
+
+  subsection Vertical
+    set Magnitude = 10
+  end
+end
+
+
+subsection Material model
+  set Model name = fractionation
+
+  subsection Fractionation model
+    set Reference density             = 3300
+    set Reference specific heat       = 1200
+    set Reference temperature         = 2400
+    set Thermal conductivity          = 4.0
+    set Thermal expansion coefficient = 3.5e-5
+    set Viscosity                     = 5e22
+    set Thermal viscosity exponent    = 10
+    set Minimum thermal prefactor     = 1e-3
+  end
+end
+
+
+# The settings above all pertain to the description of the
+# continuous partial differential equations we want to solve.
+# The following section deals with the discretization of
+# this problem, namely the kind of mesh we want to compute
+# on. We here use a globally refined mesh without
+# adaptive mesh refinement.
+subsection Mesh refinement
+  set Initial global refinement                = 6
+  set Initial adaptive refinement              = 4
+  set Refinement fraction                      = 0.5
+  set Time steps between mesh refinement       = 2
+  set Strategy                                 = composition threshold, minimum refinement function
+  set Minimum refinement level                 = 6
+
+  subsection Composition threshold
+    set Compositional field thresholds = 0.27
+    set Compositional field deviation thresholds = 1e-6
+  end
+
+  subsection Minimum refinement function
+    set Coordinate system = cartesian
+    set Variable names  = x, z
+    set Function expression = if(z<100000,10,5)
+  end
+end
+
+
+subsection Postprocess
+  set List of postprocessors = velocity statistics, temperature statistics, composition statistics, heat flux statistics, visualization
+
+  subsection Visualization
+    set Time between graphical output = 1e6
+    set List of output variables = material properties, nonadiabatic temperature, melt fraction
+  end
+end
+
+subsection Checkpointing
+  # The wall time between performing checkpoints. If 0, will use the
+  # checkpoint step frequency instead. Units: Seconds.
+  set Time between checkpoint  = 900
+end
+
+

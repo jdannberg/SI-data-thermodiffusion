@@ -1,0 +1,137 @@
+# Fractionation example.
+# This reproduces the experiment SOR-27 from the manuscript. 
+
+
+set Dimension                              = 2
+
+set Use years in output instead of seconds = false
+set End time                               = 7200    # 2 hours
+set Maximum time step                      = 10
+set Output directory                       = sor-27-alpha2.8
+set Nonlinear solver scheme                = single Advection, no Stokes
+set Max nonlinear iterations               = 10
+
+set Pressure normalization                 = surface
+set Surface pressure                       = 0
+set Adiabatic surface temperature          = 2010
+
+# We only want to solve the diffusion equation and assume there is
+# no advection. 
+subsection Prescribed Stokes solution
+  set Model name = function
+  subsection Pressure function
+    set Function expression = 0
+  end
+  subsection Velocity function
+    set Function expression = 0; 0
+  end
+end
+
+# The factor that is refereed to as alpha in the manuscript is the ratio of the 
+# chemical diffusivit and the isotope fractionation factor. 
+# The value from the manusript, alpha = 2.5, assumes that the fraction of iron54
+# is close to 1, which is not given in out setup. Hence, we have to use a factor of
+# 2.5/(1-0.27)=3.425 here (where 0.27 is the ratio of iron57 to iron54).
+subsection Compositional fields
+  set Number of fields = 1
+  set Names of fields  = iron57
+  set List of chemical diffusivities = 5e-9
+  set List of isotope fractionation factors = 5.18378378e-10 #alpha = 2.8
+end
+
+# The length of the capsule is 5.43 mm. 
+subsection Geometry model
+  set Model name = box
+
+  subsection Box
+    set X extent = 0.001
+    set Y extent = 0.00543
+    set Y repetitions = 5
+  end
+end
+
+# We get the expression for the initial temperature from a fit od a quadratic
+# function to the measuments from the experiment. 
+subsection Initial temperature model
+  set List of model names = function
+  subsection Function
+    set Function constants  = mm=1e-3
+    set Function expression = 273.15 + 2004.3861 +3218.60976*y - 9046086.69464975*y*y
+  end
+end
+
+# The initial bulk composition in the experiment is offset from the 
+# reference value by approximately Delta57/54 = +0.6. 
+subsection Initial composition model
+  set Model name = function
+  subsection Function
+   set Function expression = 0.270162
+  end
+end
+
+
+subsection Boundary temperature model
+  set Fixed temperature boundary indicators   = bottom, top
+  set List of model names = initial temperature
+  subsection Initial temperature
+    set Maximal temperature = 2010
+  end
+end
+
+subsection Boundary composition model
+  set List of model names = initial composition
+end
+
+subsection Heating model
+  set List of model names = 
+end
+
+
+subsection Gravity model
+  set Model name = vertical
+
+  subsection Vertical
+    set Magnitude = 10
+  end
+end
+
+
+subsection Material model
+  set Model name = fractionation
+
+  subsection Fractionation model
+    set Reference density             = 5600
+    set Reference specific heat       = 1200
+    set Reference temperature         = 2010
+    set Thermal conductivity          = 0
+    set Thermal expansion coefficient = 1e-10
+    set Viscosity                     = 5e22
+    set Thermal viscosity exponent    = 0
+    set Minimum thermal prefactor     = 1e-3
+  end
+end
+
+
+subsection Mesh refinement
+  set Initial global refinement                = 5
+  set Initial adaptive refinement              = 0
+  set Time steps between mesh refinement       = 0
+  set Strategy                                 = composition threshold
+  set Minimum refinement level                 = 5
+
+  subsection Composition threshold
+    set Compositional field thresholds = 0.275
+  end
+end
+
+
+subsection Postprocess
+  set List of postprocessors = velocity statistics, temperature statistics, heat flux statistics, visualization
+
+  subsection Visualization
+    set Time between graphical output = 0
+    set List of output variables = material properties, nonadiabatic temperature
+  end
+end
+
+
